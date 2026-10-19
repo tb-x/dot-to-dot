@@ -132,9 +132,10 @@ const DOTS = [10, 15, 20, 30, 50];   // the choices in the Dots list
 const STEPS = { 1: '1, 2, 3…', 2: '2, 4, 6…', 5: '5, 10, 15…', 10: '10, 20, 30…' };   // count by → name in the list
 const SHEETS_MAX = 20;
 const GRID = { 1: [1, 1], 2: [1, 2] };   // puzzles per page → columns × rows (2 sit one above the other)
-const DIGITS = { 10: 6, 15: 5.6, 20: 5.2, 30: 4.4, 50: 3.5 };   // mm, height of the numbers' digits with 1 puzzle a page, by dots…
+const DIGITS = { 10: 3.6, 15: 3.4, 20: 3.2, 30: 2.9, 50: 2.5 };   // mm, height of the numbers' digits with 1 puzzle a page, by dots…
 const DIGITS_2UP = 0.85;             // …times this with 2 a page…
-const DIGITS_MIN = 4;                // …but never below this at 20 dots or fewer
+const DIGITS_MIN = 2.8;              // …but never below this at 20 dots or fewer
+const NUM_INK = '#8d93a1';           // the numbers' grey, lighter than the dots so the picture shows through
 const DOT_R = 1.15;                  // mm, radius of a dot
 const START_R = 3.4;                 // mm, radius of the star that marks dot 1
 const LINE = 0.75;                   // mm, the lines already drawn (eyes, windows…)
@@ -501,7 +502,7 @@ function puzzleSvg(p, n, step, W, H, opts = {}) {
   s += '<g class="marks">';
   s += `<path d="${starAt(first[0], first[1], START_R)}" fill="#fff" stroke="${INK}" stroke-width="0.5" stroke-linejoin="round"/>`;
   s += L.dots.map(([x, y], i) => `<circle cx="${f(x)}" cy="${f(y)}" r="${i ? DOT_R : DOT_R * 0.8}" fill="${INK}"/>`).join('');
-  s += `<g font-size="${f(L.dh * FONT)}" fill="${INK}" text-anchor="middle">` + L.labels.map(({ v, r }) =>
+  s += `<g font-size="${f(L.dh * FONT)}" fill="${NUM_INK}" text-anchor="middle">` + L.labels.map(({ v, r }) =>
     `<text x="${f((r[0] + r[2]) / 2)}" y="${f(r[3])}">${v}</text>`).join('') + '</g>';
   s += '</g></g>';
   if (Q) s += qrSvg(opts.qr, W - Q, 0, Q);

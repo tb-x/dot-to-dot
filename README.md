@@ -21,8 +21,8 @@ Live at **https://tb-x.github.io/dot-to-dot/**
 
 ## The maker page
 
-- **Dots**: 10, 15, 20, 30 or 50 dots in each picture. 10 to 20 is right for a 5-year-old; the numbers are at
-  least 4 mm tall up to 20 dots and get smaller with more.
+- **Dots**: 10, 15, 20, 30 or 50 dots in each picture. 10 to 20 is right for a 5-year-old; the numbers are small
+  and printed in light grey (about 3 mm tall up to 20 dots, smaller with more), so the picture stands out.
 - **Count by**: 1, 2, 3… for counting, or 2, 4, 6…, 5, 10, 15… and 10, 20, 30… for skip counting.
 - **Picture**: Surprise me (a random picture, different ones on the same page) or one of the pictures below.
   Some pictures need more dots to look right, so they're greyed out when there are too few.
@@ -93,8 +93,9 @@ Named constants at the top of the script in `index.html`:
 | `STEPS` | 1, 2, 5, 10 | The choices under "Count by" |
 | `SHEETS_MAX` | 20 | Most pages printed at once |
 | `GRID` | 1, 2 (one above the other) | How the puzzles sit on a page |
-| `DIGITS` | 6 / 5.6 / 5.2 / 4.4 / 3.5 mm | How tall the numbers' digits are at 10 / 15 / 20 / 30 / 50 dots, 1 a page |
-| `DIGITS_2UP`, `DIGITS_MIN` | 0.85, 4 mm | Numbers a bit smaller with 2 a page, but never under 4 mm at 20 dots or fewer |
+| `DIGITS` | 3.6 / 3.4 / 3.2 / 2.9 / 2.5 mm | How tall the numbers' digits are at 10 / 15 / 20 / 30 / 50 dots, 1 a page |
+| `DIGITS_2UP`, `DIGITS_MIN` | 0.85, 2.8 mm | Numbers a bit smaller with 2 a page, but never under 2.8 mm at 20 dots or fewer |
+| `NUM_INK` | `#8d93a1` | The numbers' grey: lighter than the dots, so the picture stands out more than the numbers |
 | `DOT_R` / `START_R` | 1.15 / 3.4 mm | Size of a dot, and of the star around dot 1 |
 | `LINE` | 0.75 mm | Thickness of the lines printed from the start |
 | `MAX_PIC` | 168 mm | The biggest a picture gets |
