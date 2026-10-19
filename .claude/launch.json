@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dots",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5220"],
+      "port": 5220
+    }
+  ]
+}

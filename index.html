@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dot-to-Dot</title>
+<meta name="theme-color" content="#3657a8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dot-to-Dot">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" crossorigin="anonymous"></script>
+<style>
+  /* Layout: maker mode is a settings card above a column of A4 sheet previews; each sheet prints in black and white as one wordless page of 1 or 2 dot-to-dot puzzles (numbered dots starting at a star, a few lines already drawn, an answer QR code top right). Answer mode (the QR's #p3n20s1 link) is one puzzle on a card, with the line joining the dots and the picture colouring in. */
+  :root{
+    --ink:#1f2a44; --blue:#3657a8; --cream:#f7f1e3; --cream-dark:#e2d6b8;
+    --go:#2fa34a; --red:#e0533d;
+    --read:Verdana,Tahoma,sans-serif;
+    --title:'Luckiest Guy','Arial Rounded MT Bold','Trebuchet MS',system-ui,sans-serif;
+    --z:1;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{background:var(--blue);color:var(--ink);font-family:var(--read);-webkit-tap-highlight-color:transparent;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  button,input,select{font:inherit;color:inherit;touch-action:manipulation}
+  button{cursor:pointer}
+
+  #home{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));z-index:50;
+    width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#2a2140;background:rgba(255,255,255,.82);
+    box-shadow:0 3px 0 rgba(0,0,0,.18);touch-action:manipulation;-webkit-tap-highlight-color:transparent;text-decoration:none}
+  #home svg{width:24px;height:24px}
+  #home:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.18)}
+
+  /* ---------- maker ---------- */
+  main{max-width:860px;margin:0 auto;
+    padding:calc(12px + env(safe-area-inset-top,0px)) calc(12px + env(safe-area-inset-right,0px))
+            calc(28px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px))}
+  header{padding-left:56px;min-height:44px;color:#fff}
+  h1{font-family:var(--title);font-weight:400;font-size:clamp(30px,6vw,42px);letter-spacing:1px;line-height:1.1;margin:0;
+    text-shadow:0 3px 0 rgba(0,0,0,.25)}
+  header p{margin:6px 0 0;font-size:14px;line-height:1.45;opacity:.92}
+  #controls{margin:16px 0 22px;background:var(--cream);border-radius:16px;padding:14px;box-shadow:0 4px 0 rgba(0,0,0,.2);
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px 14px}
+  #controls label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:bold}
+  #controls input,#controls select{height:44px;width:100%;border:2px solid var(--cream-dark);border-radius:10px;background:#fff;
+    padding:0 10px;font-size:16px}
+  .btns{grid-column:1/-1;display:flex;gap:10px}
+  .btns button{flex:1;height:54px;border:0;border-radius:14px;color:#fff;font-family:var(--title);font-size:clamp(18px,5.4vw,24px);letter-spacing:1px;white-space:nowrap;
+    padding-top:4px;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+  .btns button:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+  #new{background:var(--red)}
+  #print{background:var(--go)}
+
+  #pages{display:flex;flex-direction:column;align-items:center;gap:22px}
+  .page{position:relative}
+  .reroll{position:absolute;bottom:8px;right:8px;width:44px;height:44px;border-radius:50%;border:0;background:var(--cream);
+    box-shadow:0 3px 0 rgba(0,0,0,.2);display:grid;place-items:center;padding:0}
+  .reroll svg{width:24px;height:24px}
+
+  /* one printed A4 page; all sizes in mm so the preview is the print. --z shrinks the preview to fit a phone. */
+  .sheet{zoom:var(--z);width:210mm;height:296.5mm;padding:12mm;background:#fff;overflow:hidden;
+    display:grid;gap:8mm;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+  .slot{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+  .slot svg{display:block}
+  .dd text{font-family:var(--read)}
+  .solved .line{fill:none;stroke-linecap:round;stroke-linejoin:round;animation:draw var(--t,4s) linear .6s forwards}
+  .solved .paint{opacity:0;animation:show 1s ease calc(var(--t,4s) + .7s) forwards}
+  .solved .marks{animation:dim 1s ease calc(var(--t,4s) + .7s) forwards}
+  .solved .all{transform-box:fill-box;transform-origin:50% 100%;animation:hop .5s ease-in-out calc(var(--t,4s) + 1.4s) 2}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes show{to{opacity:1}}
+  @keyframes dim{to{opacity:.28}}
+  @keyframes hop{50%{transform:translateY(-4%) scale(1.03)}}
+
+  /* ---------- answer ---------- */
+  #answer{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+    padding-top:calc(64px + env(safe-area-inset-top,0px))}
+  .solved{width:min(100%,560px);background:#fff;border-radius:14px;padding:14px;box-shadow:0 6px 0 rgba(0,0,0,.2);
+    display:flex;flex-direction:column;align-items:center;gap:12px}
+  .solved svg{width:100%;height:auto;max-height:calc(100dvh - 150px);display:block;cursor:pointer}
+  #make{color:var(--blue);font-size:14px}
+  body.answering #maker, body:not(.answering) #answer{display:none}
+
+  /* ---------- print: only the sheets, one per page ---------- */
+  @page{size:A4 portrait;margin:0}
+  @media print{
+    body{background:#fff}
+    #home,main>header,#controls,.reroll,#answer{display:none!important}
+    main{padding:0;max-width:none}
+    #pages{display:block}
+    .sheet{zoom:1!important;box-shadow:none}
+    .page:not(:last-child){break-after:page}
+  }
+</style>
+</head>
+<body>
+<a id="home" href="../print.html" aria-label="All printables" title="All printables"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 9.8V20h12V9.8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M10 20v-5.5h4V20" fill="currentColor"/></svg></a>
+
+<main id="maker">
+  <header>
+    <h1>Dot-to-Dot</h1>
+    <p>Print a sheet of dot-to-dots. Your child starts at the star and joins the dots in number order, and a picture appears. Scan a puzzle's QR code to watch it being drawn.</p>
+  </header>
+  <form id="controls" onsubmit="return false">
+    <label>Dots <select id="dots"></select></label>
+    <label>Count by <select id="step"></select></label>
+    <label>Picture <select id="pic"></select></label>
+    <label>Per page
+      <select id="perPage"><option value="1">1</option><option value="2">2</option></select>
+    </label>
+    <label>Pages <input id="sheets" type="number" inputmode="numeric"></label>
+    <div class="btns"><button id="new" type="button">New pictures</button><button id="print" type="button">Print</button></div>
+  </form>
+  <div id="pages"></div>
+</main>
+
+<main id="answer"><div id="solved" class="solved"></div></main>
+
+<script>
+/* ======== tuning ======== */
+const DEFAULTS = { dots: 20, step: 1, pic: 'surprise', perPage: 1, sheets: 1 };
+const DOTS = [10, 15, 20, 30, 50];   // the choices in the Dots list
+const STEPS = { 1: '1, 2, 3…', 2: '2, 4, 6…', 5: '5, 10, 15…', 10: '10, 20, 30…' };   // count by → name in the list
+const SHEETS_MAX = 20;
+const GRID = { 1: [1, 1], 2: [1, 2] };   // puzzles per page → columns × rows (2 sit one above the other)
+const DIGITS = { 10: 6, 15: 5.6, 20: 5.2, 30: 4.4, 50: 3.5 };   // mm, height of the numbers' digits with 1 puzzle a page, by dots…
+const DIGITS_2UP = 0.85;             // …times this with 2 a page…
+const DIGITS_MIN = 4;                // …but never below this at 20 dots or fewer
+const DOT_R = 1.15;                  // mm, radius of a dot
+const START_R = 3.4;                 // mm, radius of the star that marks dot 1
+const LINE = 0.75;                   // mm, the lines already drawn (eyes, windows…)
+const MAX_PIC = 168;                 // mm, the biggest a picture gets
+const QR = 20;                       // mm, the answer QR code
+const LEN_W = 0.06;                  // dot picking: higher spreads the dots more evenly, lower keeps more small bends
+const CORNER_BONUS = 3;              // dot picking: how much more a sharp corner is worth than a bend
+const RELAX = 6;                     // dot picking: rounds of evening out the gaps along straight stretches
+const PUBLIC_URL = 'https://tb-x.github.io/dot-to-dot/';   // where the QR points when the maker isn't on GitHub Pages
+
+/* ======== small helpers ======== */
+const range = (n) => Array.from({ length: n }, (_, i) => i);
+const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = rint(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const f = (x) => +x.toFixed(2);
+const dist = (a, b) => Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2);   // (sqrt, not hypot: it's exact in every browser)
+const INK = '#1f2a44';
+
+/* ======== pictures ======== */
+// Each picture is drawn in a 100 × 100 box (y down). `d` is its one closed outline, the line the child draws: it
+// starts at dot 1 and may use M L H V C Q T Z. `details` are lines printed from the start (eyes, windows) that help
+// the picture look finished without giving it away. `min` is the fewest dots it still looks right with. `fill` is
+// its colour on the answer page. The index is the p number in the answer link, so only ever add to the end.
+const ring = (x, y, r, ry = r) => {   // a circle (or ellipse) as four curves
+  const k = 0.5523, a = r * k, b = ry * k;
+  return `M${f(x + r)} ${y}C${f(x + r)} ${f(y + b)} ${f(x + a)} ${f(y + ry)} ${x} ${f(y + ry)}C${f(x - a)} ${f(y + ry)} ${f(x - r)} ${f(y + b)} ${f(x - r)} ${y}`
+    + `C${f(x - r)} ${f(y - b)} ${f(x - a)} ${f(y - ry)} ${x} ${f(y - ry)}C${f(x + a)} ${f(y - ry)} ${f(x + r)} ${f(y - b)} ${f(x + r)} ${y}Z`;
+};
+// the five-pointed star, worked out once and written down so every browser gets the very same numbers
+const STAR_D = 'M50 6L61.76 37.82L95.65 39.17L69.02 60.18L78.21 92.83L50 74L21.79 92.83L30.98 60.18L4.35 39.17L38.24 37.82Z';
+
+const PICS = [
+  { name: 'Star', min: 10, fill: '#ffd23f', d: STAR_D,
+    details: `${ring(43, 54, 2.6)}${ring(57, 54, 2.6)}M44 62Q50 67 56 62` },
+  { name: 'Heart', min: 10, fill: '#ef4b5c',
+    d: 'M50 30C56 16 68 12 78 14C90 17 95 28 94 38C92 56 70 72 50 90C30 72 8 56 6 38C5 28 10 17 22 14C32 12 44 16 50 30Z',
+    details: 'M18 34C18 27 22 23 28 22' },
+  { name: 'House', min: 10, fill: '#f4a259',
+    d: 'M50 6L94 46H82V94H18V46H6Z',
+    details: 'M42 94V72H58V94M26 56H38V68H26ZM32 56V68M26 62H38M62 56H74V68H62ZM68 56V68M62 62H74M68 22.4V12H78V31.5' },
+  { name: 'Fish', min: 10, fill: '#ff9f43',
+    d: 'M95 50C86 67 68 75 50 73C38 72 29 65 23 58L6 74L13 50L6 26L23 42C29 35 38 28 50 27C68 25 86 33 95 50Z',
+    details: `${ring(78, 44, 3.2)}M60 35C65 43 65 57 60 65M90 56Q86 59 82 57` },
+  { name: 'Sailboat', min: 10, fill: '#5bc0eb',
+    d: 'M50 6L86 66H96L80 88H20L4 66H14Z',
+    details: `M50 6V66M14 66H86${ring(34, 77, 3)}${ring(50, 77, 3)}${ring(66, 77, 3)}` },
+  { name: 'Rocket', min: 15, fill: '#e94f37',
+    d: 'M50 3C62 13 67 28 67 46V62L84 80V94L67 84H33L16 94V80L33 62V46C33 28 38 13 50 3Z',
+    details: `${ring(50, 40, 7)}M33 62H67M41 84L44 95L50 89L56 95L59 84` },
+  { name: 'Crown', min: 10, fill: '#ffc93c',
+    d: 'M50 18L72 54L94 28L84 84H16L6 28L28 54Z',
+    details: `M13.9 72H86.1${ring(32, 78, 3)}${ring(50, 78, 3)}${ring(68, 78, 3)}` },
+  { name: 'Christmas tree', min: 15, fill: '#3fa34d',
+    d: 'M50 3L71 30H62L83 56H73L94 82H58V96H42V82H6L27 56H17L38 30H29Z',
+    details: `${ring(50, 22, 2.6)}${ring(42, 44, 3)}${ring(60, 47, 3)}${ring(32, 72, 3)}${ring(52, 70, 3)}${ring(72, 73, 3)}` },
+  { name: 'Apple', min: 10, fill: '#e63946',
+    d: 'M50 27C58 19 70 17 80 22C91 28 95 42 92 56C89 72 78 88 66 92C59 94 55 90 50 90C45 90 41 94 34 92C22 88 11 72 8 56C5 42 9 28 20 22C30 17 42 19 50 27Z',
+    details: 'M50 27C50 20 51 13 55 6M53 16C58 8 68 5 77 8C72 16 62 20 53 16ZM20 42C20 36 23 31 28 29' },
+  { name: 'Cat', min: 15, fill: '#f9a03f',
+    d: 'M50 24C58 24 64 25 70 28L84 6L87 40C93 52 92 70 82 82C72 93 60 96 50 96C40 96 28 93 18 82C8 70 7 52 13 40L16 6L30 28C36 25 42 24 50 24Z',
+    details: `${ring(36, 56, 4)}${ring(64, 56, 4)}M46 66H54L50 71ZM50 71Q50 77 44 78M50 71Q50 77 56 78M31 70H20M31 75L21 79M69 70H80M69 75L79 79` },
+  { name: 'Butterfly', min: 20, fill: '#c77dff',
+    d: 'M84 8C96 10 98 24 92 34C88 42 76 48 60 52C74 54 86 62 86 74C86 86 74 92 64 86C58 82 54 76 50 68C46 76 42 82 36 86C26 92 14 86 14 74C14 62 26 54 40 52C24 48 12 42 8 34C2 24 4 10 16 8C30 6 44 18 50 34C56 18 70 6 84 8Z',
+    details: `M50 36C52.5 44 52.5 60 50 66C47.5 60 47.5 44 50 36ZM49 34C46 24 42 18 36 16M51 34C54 24 58 18 64 16${ring(76, 24, 5)}${ring(24, 24, 5)}${ring(70, 74, 3.5)}${ring(30, 74, 3.5)}` },
+  { name: 'Umbrella', min: 10, fill: '#ff5d8f',
+    d: 'M50 8C76 8 96 28 96 54Q84.5 44 73 54Q61.5 44 50 54Q38.5 44 27 54Q15.5 44 4 54C4 28 24 8 50 8Z',
+    details: 'M50 54V86C50 94 40 94 40 87M50 12C42 22 31 38 27 54M50 12C58 22 69 38 73 54' },
+  { name: 'Whale', min: 15, fill: '#4d8fd6',
+    d: 'M56 30C78 30 94 44 94 60C94 76 78 84 58 84C42 84 30 78 22 68C17 61 13 52 12 42Q4 32 2 12Q12 14 17 22Q22 14 32 12Q30 32 22 42C28 35 40 30 56 30Z',
+    details: `${ring(80, 56, 2.6)}M86 68Q78 73 70 68M64 25C63 17 58 12 53 10M64 25C65 17 70 12 75 10M64 25V8` },
+  { name: 'Bird', min: 15, fill: '#ffb703',
+    d: 'M58 18C70 18 78 26 78 34L92 38L78 44C80 60 72 78 54 82C40 84 30 80 22 72L4 76L10 62C14 50 22 40 32 34C38 24 46 18 58 18Z',
+    details: `${ring(64, 30, 3)}M30 52C40 46 54 50 60 62C50 68 38 66 30 52ZM46 82V92M56 81V92M42 92H50M52 92H60` },
+  { name: 'Car', min: 15, fill: '#e63946',
+    d: 'M34 26H64L76 44L90 46C94 47 96 50 96 54V70H84C84 62 78 56 72 56C66 56 60 62 60 70H40C40 62 34 56 28 56C22 56 16 62 16 70H8V52C8 48 10 46 14 46L24 44Z',
+    details: `${ring(28, 71, 8)}${ring(28, 71, 2.6)}${ring(72, 71, 8)}${ring(72, 71, 2.6)}M37 30H48V43H29ZM52 30H62L70 43H52Z` },
+  { name: 'Teddy bear', min: 15, fill: '#b5835a',
+    d: 'M50 22C58 22 64 23 70 26C70 16 78 10 84 12C92 14 96 22 92 30C90 34 88 36 86 38C92 48 92 72 80 84C72 92 62 96 50 96C38 96 28 92 20 84C8 72 8 48 14 38C12 36 10 34 8 30C4 22 8 14 16 12C22 10 30 16 30 26C36 23 42 22 50 22Z',
+    details: `M76 24C77 19 82 18 86 22M24 24C23 19 18 18 14 22${ring(38, 52, 3.5)}${ring(62, 52, 3.5)}${ring(50, 72, 14, 10)}M45 66Q50 63 55 66Q50 71 45 66ZM50 70V75M44 77Q50 81 56 77` },
+  { name: 'Dinosaur', min: 20, fill: '#7bc950',
+    d: 'M80 8C88 6 96 10 96 16C96 22 90 24 84 24C80 26 78 32 77 40L74 56C76 62 76 66 74 70V92H64V76H44V92H34V74C24 74 12 72 2 76C12 64 22 56 32 50C42 42 56 42 66 50L70 32C70 22 72 12 80 8Z',
+    details: `${ring(86, 14, 2)}M89 20Q92 21 95 19${ring(42, 60, 3)}${ring(54, 56, 3)}${ring(30, 62, 2.4)}` },
+  { name: 'Bunny', min: 15, fill: '#f2e9e4',
+    d: 'M50 40C54 40 58 41 60 42C58 30 58 14 64 6C70 2 76 8 74 22C74 32 70 40 68 46C78 54 82 66 78 76C72 90 60 94 50 94C40 94 28 90 22 76C18 66 22 54 32 46C30 40 26 32 26 22C24 8 30 2 36 6C42 14 42 30 40 42C42 41 46 40 50 40Z',
+    details: `M65 14C67 18 67 28 65 36M35 14C33 18 33 28 35 36${ring(40, 62, 3.2)}${ring(60, 62, 3.2)}M46 71H54L50 75ZM50 75V79M46 79H54V84H46ZM50 79V84M38 74H24M62 74H76` },
+  { name: 'Elephant', min: 20, fill: '#a3b1c6',
+    d: 'M30 20C44 16 54 22 58 30C66 24 84 26 90 40C94 50 94 60 92 66V90H80V74H52V90H40V66C36 66 32 70 30 78C30 84 26 90 20 90C14 90 12 86 14 82C18 84 20 82 20 78C20 70 18 62 14 56C8 46 10 26 30 20Z',
+    details: `M44 30C56 32 58 52 46 58C38 58 36 48 40 36${ring(30, 38, 2.2)}M28 56Q33 61 39 59M92 54Q98 58 98 66` },
+];
+
+/* ======== outlines: read, sample, pick the dots ======== */
+// a path as lists of segments (each a list of points: 2 for a line, 3 for Q, 4 for C), one list per M
+function parsePath(d) {
+  const tok = d.match(/[MLHVCQTZmlhvcqtz]|-?(?:\d+\.?\d*|\.\d+)/g) || [];
+  const subs = [];
+  let cur = null, x = 0, y = 0, sx = 0, sy = 0, cmd = '', i = 0, lastQ = null;
+  const num = () => +tok[i++];
+  while (i < tok.length) {
+    if (/[a-z]/i.test(tok[i])) cmd = tok[i++];
+    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+    if (C === 'Z') {
+      if (cur && (x !== sx || y !== sy)) cur.segs.push([[x, y], [sx, sy]]);
+      if (cur) cur.closed = true;
+      x = sx; y = sy; cur = null; lastQ = null;
+      continue;
+    }
+    if (C === 'M') {
+      x = ox + num(); y = oy + num(); sx = x; sy = y;
+      cur = { segs: [], closed: false }; subs.push(cur);
+      cmd = rel ? 'l' : 'L'; lastQ = null;
+      continue;
+    }
+    if (!cur) { cur = { segs: [], closed: false }; subs.push(cur); sx = x; sy = y; }
+    const p0 = [x, y];
+    let q = null;
+    if (C === 'L') { x = ox + num(); y = oy + num(); cur.segs.push([p0, [x, y]]); }
+    else if (C === 'H') { x = ox + num(); cur.segs.push([p0, [x, y]]); }
+    else if (C === 'V') { y = oy + num(); cur.segs.push([p0, [x, y]]); }
+    else if (C === 'C') {
+      const c1 = [ox + num(), oy + num()], c2 = [ox + num(), oy + num()];
+      x = ox + num(); y = oy + num(); cur.segs.push([p0, c1, c2, [x, y]]);
+    } else if (C === 'Q' || C === 'T') {
+      q = C === 'Q' ? [ox + num(), oy + num()] : lastQ ? [2 * x - lastQ[0], 2 * y - lastQ[1]] : [x, y];
+      x = ox + num(); y = oy + num(); cur.segs.push([p0, q, [x, y]]);
+    } else throw new Error('path command ' + cmd);
+    lastQ = q;
+  }
+  return subs;
+}
+
+// a point on a line or curve (de Casteljau), t from 0 to 1
+function bez(ps, t) {
+  let q = ps;
+  while (q.length > 1) q = q.slice(1).map((p, k) => [q[k][0] + (p[0] - q[k][0]) * t, q[k][1] + (p[1] - q[k][1]) * t]);
+  return q[0];
+}
+
+// points every `step` units or so along a sub-path; where two segments meet at a sharp angle the point is a corner
+const SAMPLE = 0.6, CORNER = 0.883;   // cosine of the gentlest corner (28°), written out so every browser agrees
+function sample(sub, step = SAMPLE) {
+  const pts = [];
+  for (const seg of sub.segs) {
+    let len = 0, prev = seg[0];
+    for (let j = 1; j <= 16; j++) { const p = bez(seg, j / 16); len += dist(p, prev); prev = p; }
+    if (len < 1e-6) continue;
+    const m = Math.max(1, Math.ceil(len / step));
+    for (let j = 0; j < m; j++) pts.push({ p: bez(seg, j / m), vertex: j === 0 });
+  }
+  if (!sub.closed && sub.segs.length) pts.push({ p: sub.segs.at(-1).at(-1), vertex: true });
+  const n = pts.length;
+  pts.forEach((o, i) => {
+    if (!o.vertex || (!sub.closed && (i === 0 || i === n - 1))) return;
+    const a = pts[(i + n - 1) % n].p, b = o.p, c = pts[(i + 1) % n].p;
+    const u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+    o.corner = (u[0] * v[0] + u[1] * v[1]) / (Math.sqrt(u[0] ** 2 + u[1] ** 2) * Math.sqrt(v[0] ** 2 + v[1] ** 2)) < CORNER;
+  });
+  return pts;
+}
+
+// Visvalingam–Whyatt: drop the least important point again and again until n are left. A point's importance is
+// the triangle it makes with its neighbours (so corners stay), plus a little of the gap that dropping it would
+// leave (so dots stay spread out); sharp corners count extra, and the first point always stays. Returns the
+// indexes of the points left.
+function simplify(pts, n) {
+  const m = pts.length;
+  if (m <= n) return range(m);
+  const prev = range(m).map((i) => (i + m - 1) % m), next = range(m).map((i) => (i + 1) % m), alive = new Array(m).fill(true);
+  const weight = (i) => {
+    if (i === 0) return Infinity;
+    const a = pts[prev[i]].p, b = pts[i].p, c = pts[next[i]].p;
+    const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2;
+    return (area + LEN_W * ((c[0] - a[0]) ** 2 + (c[1] - a[1]) ** 2)) * (pts[i].corner ? CORNER_BONUS : 1);
+  };
+  const w = range(m).map(weight);
+  for (let left = m; left > n; left--) {
+    let best = -1;
+    for (let i = 1; i < m; i++) if (alive[i] && (best < 0 || w[i] < w[best])) best = i;
+    alive[best] = false;
+    const a = prev[best], c = next[best];
+    next[a] = c; prev[c] = a;
+    w[a] = weight(a); w[c] = weight(c);
+  }
+  return range(m).filter((i) => alive[i]);
+}
+
+// Then even out the gaps: a dot that sits on a straight stretch or a gentle bend (not a corner) slides along the
+// outline to halfway between its neighbours, a few times over, so long edges get evenly spaced dots.
+const STRAIGHT = 0.94;   // cosine of the sharpest bend a dot may slide on (about 20°)
+function relax(pts, keep) {
+  const m = pts.length, n = keep.length, at = [0];
+  for (let i = 1; i < m; i++) at.push(at[i - 1] + dist(pts[i - 1].p, pts[i].p));
+  const total = at[m - 1] + dist(pts[m - 1].p, pts[0].p);
+  for (let round = 0; round < RELAX; round++) for (let k = 1; k < n; k++) {
+    const i = keep[k], lo = keep[k - 1], hi = k + 1 < n ? keep[k + 1] : m;
+    if (pts[i].corner) continue;
+    const a = pts[lo].p, b = pts[i].p, c = pts[hi % m].p;
+    const u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+    if (u[0] * v[0] + u[1] * v[1] < STRAIGHT * Math.sqrt((u[0] ** 2 + u[1] ** 2) * (v[0] ** 2 + v[1] ** 2))) continue;
+    const goal = (at[lo] + (hi < m ? at[hi] : total)) / 2;
+    let j = lo + 1;
+    while (j + 1 < hi && Math.abs(at[j + 1] - goal) <= Math.abs(at[j] - goal)) j++;
+    keep[k] = j;
+  }
+  return keep;
+}
+
+// the n dots of picture p, in the 100-unit box, going clockwise from dot 1. Only + − × ÷ and √ go into them, which
+// every browser works out exactly alike, so the answer page gets the same dots as the printed sheet.
+const dotCache = {};
+function dotsFor(p, n) {
+  return (dotCache[`${p}/${n}`] ??= (() => {
+    const all = sample(parsePath(PICS[p].d)[0]), pts = relax(all, simplify(all, n)).map((i) => all[i].p);
+    let area = 0;
+    pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length]; area += a[0] * b[1] - b[0] * a[1]; });
+    return area >= 0 ? pts : [pts[0], ...pts.slice(1).reverse()];   // (y points down, so positive is clockwise)
+  })());
+}
+// the details as lists of points, for keeping numbers off them
+const detailCache = {};
+const detailLines = (p) => (detailCache[p] ??= PICS[p].details ? parsePath(PICS[p].details).map((s) => sample(s, 1.5).map((o) => o.p)) : []);
+
+/* ======== laying out one puzzle ======== */
+// how tall the numbers' digits are, in mm
+const digitsFor = (n, perPage) => {
+  const h = DIGITS[n] ?? DIGITS[DOTS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a))];
+  return Math.max(perPage === 2 ? h * DIGITS_2UP : h, n <= 20 ? DIGITS_MIN : 0);
+};
+// Verdana's digits: each 0.636 of the font size wide, 0.727 tall
+const FONT = 1 / 0.727;
+const labelBox = (v, dh) => ({ w: String(v).length * 0.636 * dh * FONT, h: dh });
+
+// does the segment a–b cross the rectangle r (x0 y0 x1 y1)? (Liang–Barsky)
+function segHitsRect(a, b, r) {
+  if (Math.max(a[0], b[0]) < r[0] || Math.min(a[0], b[0]) > r[2] || Math.max(a[1], b[1]) < r[1] || Math.min(a[1], b[1]) > r[3]) return false;
+  let t0 = 0, t1 = 1;
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  for (const [p, q] of [[-dx, a[0] - r[0]], [dx, r[2] - a[0]], [-dy, a[1] - r[1]], [dy, r[3] - a[1]]]) {
+    if (p === 0) { if (q < 0) return false; continue; }
+    const t = q / p;
+    if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; }
+    else { if (t < t0) return false; if (t < t1) t1 = t; }
+  }
+  return true;
+}
+const rectDist = (r, c) => Math.sqrt(Math.max(r[0] - c[0], 0, c[0] - r[2]) ** 2 + Math.max(r[1] - c[1], 0, c[1] - r[3]) ** 2);
+const rectsMeet = (a, b, pad) => a[0] < b[2] + pad && b[0] < a[2] + pad && a[1] < b[3] + pad && b[1] < a[3] + pad;
+
+// Puzzle p with n dots, counting by `step`, in a W × H mm box with a Q mm QR code in its top right corner (0 for
+// none): where the dots go, and where each number goes so it doesn't touch another number, a dot or a line.
+function layoutPuzzle(p, n, step, W, H, Q, perPage) {
+  const unit = dotsFor(p, n), det = detailLines(p), dh = digitsFor(n, perPage);
+  const widest = labelBox(step * n, dh).w;
+  const room = Math.max(widest, dh) + DOT_R + 2;   // mm kept free around the picture for numbers
+  const all = [...unit, ...det.flat()];
+  const bx0 = Math.min(...all.map((q) => q[0])), bx1 = Math.max(...all.map((q) => q[0]));
+  const by0 = Math.min(...all.map((q) => q[1])), by1 = Math.max(...all.map((q) => q[1]));
+  const bw = bx1 - bx0, bh = by1 - by0;
+
+  // the biggest scale and the place nearest the middle where nothing comes near the QR code
+  let s = Math.min((W - 2 * room) / bw, (H - 2 * room) / bh, MAX_PIC / Math.max(bw, bh)), ox = 0, oy = 0;
+  const qrBox = [W - Q - room, -1, W + 1, Q + room];
+  const clear = (s, x, y) => {
+    if (!Q) return true;
+    const pts = unit.map((q) => [x + q[0] * s, y + q[1] * s]);
+    if (pts.some((q) => q[0] > qrBox[0] - START_R && q[1] < qrBox[3] + START_R)) return false;
+    const near = [W - Q - 2, -1, W + 1, Q + 2];
+    if (pts.some((q, i) => segHitsRect(q, pts[(i + 1) % pts.length], near))) return false;
+    return det.every((l) => l.every((q, i) => !i || !segHitsRect([x + l[i - 1][0] * s, y + l[i - 1][1] * s], [x + q[0] * s, y + q[1] * s], near)));
+  };
+  for (let tries = 0; tries < 30; tries++, s *= 0.96) {
+    const cx = (W - bw * s) / 2 - bx0 * s, cy = (H - bh * s) / 2 - by0 * s;
+    const minX = room - bx0 * s, maxY = H - room - by1 * s;
+    let best = null;
+    for (let a = 0; a <= 8; a++) for (let b = 0; b <= 8; b++) {
+      const x = cx + (minX - cx) * a / 8, y = cy + (maxY - cy) * b / 8, cost = a * a + b * b;
+      if ((!best || cost < best.cost) && clear(s, x, y)) best = { x, y, cost };
+    }
+    if (best) { ox = best.x; oy = best.y; break; }
+  }
+  const dots = unit.map((q) => [ox + q[0] * s, oy + q[1] * s]);
+  const lines = det.map((l) => l.map((q) => [ox + q[0] * s, oy + q[1] * s]));
+
+  // which way is "out" at each dot: the average of the two edges' outward sides
+  const outward = dots.map((b, i) => {
+    const a = dots[(i + n - 1) % n], c = dots[(i + 1) % n];
+    const e1 = [b[0] - a[0], b[1] - a[1]], e2 = [c[0] - b[0], c[1] - b[1]];
+    const l1 = Math.sqrt(e1[0] ** 2 + e1[1] ** 2) || 1, l2 = Math.sqrt(e2[0] ** 2 + e2[1] ** 2) || 1;
+    let v = [e1[1] / l1 + e2[1] / l2, -e1[0] / l1 - e2[0] / l2];
+    let l = Math.sqrt(v[0] ** 2 + v[1] ** 2);
+    if (l < 0.2) { v = [b[0] - (a[0] + c[0]) / 2, b[1] - (a[1] + c[1]) / 2]; l = Math.sqrt(v[0] ** 2 + v[1] ** 2) || 1; }
+    return [v[0] / l, v[1] / l];
+  });
+
+  // what a number must keep off: the lines between the dots (the child's line), the details, the dots, the QR code
+  const segs = dots.map((q, i) => [q, dots[(i + 1) % n]]);
+  for (const l of lines) for (let i = 1; i < l.length; i++) segs.push([l[i - 1], l[i]]);
+  const radius = (i) => (i === 0 ? START_R : DOT_R);
+  const qrRect = Q ? [W - Q, 0, W, Q] : null;
+  const ANGLES = [0, 20, -20, 40, -40, 60, -60, 85, -85, 115, -115, 150, -150, 180];
+  const cost = (i, r, placed) => {
+    let c = 0;
+    if (r[0] < 0 || r[1] < 0 || r[2] > W || r[3] > H) c += 1e5;
+    if (qrRect && rectsMeet(r, qrRect, 1)) c += 1e5;
+    for (const [j, o] of placed) if (j !== i && rectsMeet(r, o, 0.9)) c += 1e5;
+    const mid = [(r[0] + r[2]) / 2, (r[1] + r[3]) / 2], own = dist(mid, dots[i]);
+    dots.forEach((q, j) => {
+      if (j === i) return;
+      const d = rectDist(r, q);
+      if (d < radius(j) + 0.8) c += 5e4;
+      else if (d < radius(j) + 2) c += 200 * (radius(j) + 2 - d);
+      if (dist(mid, q) < own * 1.25) c += 3000;   // closer to another dot than to its own: which is it?
+    });
+    const pad = [r[0] - 0.5, r[1] - 0.5, r[2] + 0.5, r[3] + 0.5];
+    for (const [a, b] of segs) if (segHitsRect(a, b, pad)) c += 2e4;
+    return c;
+  };
+  const candidates = (i) => {
+    const { w, h } = labelBox(step * (i + 1), dh), [nx, ny] = outward[i], out = [];
+    ANGLES.forEach((deg, k) => {
+      const t = deg * Math.PI / 180, ux = nx * Math.cos(t) - ny * Math.sin(t), uy = nx * Math.sin(t) + ny * Math.cos(t);
+      const reach = radius(i) + 0.9 + Math.abs(ux) * w / 2 + Math.abs(uy) * h / 2;
+      [0, 1.4, 3].forEach((extra, e) => {
+        const cx = dots[i][0] + ux * (reach + extra), cy = dots[i][1] + uy * (reach + extra);
+        out.push({ r: [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2], bias: k * 6 + e * 25 });
+      });
+    });
+    return out;
+  };
+  const placed = new Map();
+  for (let pass = 0; pass < 3; pass++) for (let i = 0; i < n; i++) {
+    let best = null;
+    for (const cand of candidates(i)) {
+      const c = cost(i, cand.r, placed) + cand.bias;
+      if (!best || c < best.c) best = { r: cand.r, c };
+    }
+    placed.set(i, best.r);
+  }
+  const labels = range(n).map((i) => ({ v: step * (i + 1), r: placed.get(i) }));
+  return { dots, labels, dh, s, ox, oy };
+}
+
+/* ======== drawing one puzzle ======== */
+const starAt = (x, y, r) => range(10).map((k) => {
+  const rr = k % 2 ? r * 0.45 : r, a = (k * 36 - 90) * Math.PI / 180;
+  return `${k ? 'L' : 'M'}${f(x + rr * Math.cos(a))} ${f(y + rr * Math.sin(a))}`;
+}).join('') + 'Z';
+
+// returns an <svg> sized W × H mm. opts: qr (the answer link's hash, for a QR code), answer (draw and colour it in)
+function puzzleSvg(p, n, step, W, H, opts = {}) {
+  const Q = opts.qr ? QR : 0, L = layoutPuzzle(p, n, step, W, H, Q, opts.perPage || 1), pic = PICS[p];
+  const pts = L.dots.map(([x, y]) => `${f(x)} ${f(y)}`), [first, last] = [L.dots[0], L.dots[n - 1]];
+  let s = `<svg class="dd" width="${f(W)}mm" height="${f(H)}mm" viewBox="0 0 ${f(W)} ${f(H)}" aria-hidden="true"><g class="all">`;
+  if (opts.answer) s += `<path class="paint" d="M${pts.join('L')}Z" fill="${pic.fill}"/>`;
+  if (pic.details) s += `<path d="${pic.details}" transform="translate(${f(L.ox)} ${f(L.oy)}) scale(${f(L.s)})" fill="none" stroke="${INK}"
+    stroke-width="${f(LINE / L.s)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (opts.answer) {
+    let len = 0;
+    L.dots.forEach((q, i) => { len += dist(q, L.dots[(i + 1) % n]); });
+    s += `<path class="line" d="M${pts.join('L')}Z" stroke="${INK}" stroke-width="${f(LINE * 1.2)}"
+      style="stroke-dasharray:${f(len + 1)};stroke-dashoffset:${f(len + 1)}"/>`;
+  } else {   // the way back from the last dot to the star, dashed: the child goes over it to finish
+    s += `<path d="M${f(last[0])} ${f(last[1])}L${f(first[0])} ${f(first[1])}" stroke="${INK}" stroke-width="0.45" stroke-dasharray="1.4 1.4" fill="none"/>`;
+  }
+  s += '<g class="marks">';
+  s += `<path d="${starAt(first[0], first[1], START_R)}" fill="#fff" stroke="${INK}" stroke-width="0.5" stroke-linejoin="round"/>`;
+  s += L.dots.map(([x, y], i) => `<circle cx="${f(x)}" cy="${f(y)}" r="${i ? DOT_R : DOT_R * 0.8}" fill="${INK}"/>`).join('');
+  s += `<g font-size="${f(L.dh * FONT)}" fill="${INK}" text-anchor="middle">` + L.labels.map(({ v, r }) =>
+    `<text x="${f((r[0] + r[2]) / 2)}" y="${f(r[3])}">${v}</text>`).join('') + '</g>';
+  s += '</g></g>';
+  if (Q) s += qrSvg(opts.qr, W - Q, 0, Q);
+  return s + '</svg>';
+}
+
+/* ======== answer link and QR code ======== */
+// #p3n20s1 : the picture, how many dots, and what the numbers count by. The dots are worked out again from those.
+const answerHash = (pz) => `#p${pz.p}n${pz.n}s${pz.s}`;
+const answerBase = () => (location.hostname.endsWith('github.io') ? location.origin + location.pathname : PUBLIC_URL);
+
+function parseHash(hash) {
+  const m = /^#p(\d+)n(\d+)s(\d+)$/.exec(hash);
+  if (!m) return null;
+  const [p, n, s] = m.slice(1).map(Number);
+  if (!PICS[p] || n < 5 || n > 80 || !(s in STEPS)) return null;
+  return { p, n, s };
+}
+
+// the QR code as SVG, s mm square at x, y; on screen it's also a link to the answer
+function qrSvg(hash, x, y, s) {
+  if (typeof qrcode !== 'function') return '';   // library didn't load
+  const q = qrcode(0, 'M');
+  q.addData(answerBase() + hash);
+  q.make();
+  const n = q.getModuleCount(), pad = 1, t = n + 2 * pad;
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + pad} ${r + pad}h1v1h-1z`;
+  return `<a href="${hash}" target="_blank"><g transform="translate(${f(x)} ${f(y)}) scale(${f(s / t)})">
+    <rect width="${t}" height="${t}" fill="#fff"/><path d="${d}" fill="#000" shape-rendering="crispEdges"/></g></a>`;
+}
+
+/* ======== maker: sheets ======== */
+const $ = (id) => document.getElementById(id);
+let pages = [];   // each page is a list of picture numbers
+const SHEET_W = 186, SHEET_H = 272.5, GAP = 8;   // mm inside the page margins
+
+/* settings (remembered per browser) */
+const KEY = 'dots.settings';
+let settings = { ...DEFAULTS };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(KEY)) || {}); } catch { /* blocked on file:// */ }
+const saveSettings = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* ignore */ } };
+const clamp = (v, a, b, d) => (Number.isFinite(+v) && v !== '' ? Math.min(b, Math.max(a, Math.round(+v))) : d);
+
+const slotSize = (perPage = settings.perPage) => {
+  const [cols, rows] = GRID[perPage];
+  return [(SHEET_W - (cols - 1) * GAP) / cols, (SHEET_H - (rows - 1) * GAP) / rows];
+};
+const allowed = (n = settings.dots) => range(PICS.length).filter((p) => PICS[p].min <= n);
+
+// pictures for k pages: with "Surprise me", different ones on a page, and as few repeats across pages as can be;
+// `avoid` are pictures to skip if there are enough others (a page's old ones, for ↻)
+function pickPages(k, avoid = []) {
+  if (settings.pic !== 'surprise') return range(k).map(() => range(settings.perPage).map(() => +settings.pic));
+  const ok = allowed(), fresh = ok.filter((p) => !avoid.includes(p));
+  let bag = [];
+  return range(k).map(() => range(settings.perPage).reduce((page) => {
+    if (!bag.length) bag = shuffle((fresh.length >= settings.perPage ? fresh : ok).slice());
+    let at = bag.findIndex((p) => !page.includes(p));
+    if (at < 0) at = 0;
+    page.push(bag.splice(at, 1)[0]);
+    return page;
+  }, []));
+}
+
+const svgCache = {};
+function sheetHtml(page) {
+  const [cols, rows] = GRID[page.length], [W, H] = slotSize(page.length);
+  const slots = page.map((p) => {
+    const pz = { p, n: settings.dots, s: settings.step }, key = `${answerHash(pz)}/${page.length}`;
+    return `<div class="slot">${svgCache[key] ??= puzzleSvg(p, pz.n, pz.s, W, H, { qr: answerHash(pz), perPage: page.length })}</div>`;
+  }).join('');
+  return `<div class="sheet" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${slots}</div>`;
+}
+
+const REROLL = '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9" fill="none" stroke="#1f2a44" stroke-width="2.6" stroke-linecap="round"/><path d="M20 3v6h-6" fill="none" stroke="#1f2a44" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function renderPages() {
+  $('pages').innerHTML = pages.map((page, i) => `<div class="page">${sheetHtml(page)}
+    <button class="reroll" data-i="${i}" aria-label="New pictures for this page" title="New pictures for this page">${REROLL}</button></div>`).join('');
+  fitPages();
+}
+
+// shrink the A4 previews to the screen width (print resets the zoom)
+function fitPages() {
+  const sheetPx = 210 * 96 / 25.4;
+  document.documentElement.style.setProperty('--z', Math.min(1, $('pages').clientWidth / sheetPx).toFixed(3));
+}
+
+function readControls() {
+  const pic = $('pic').value;
+  settings = {
+    dots: DOTS.includes(+$('dots').value) ? +$('dots').value : DEFAULTS.dots,
+    step: +$('step').value in STEPS ? +$('step').value : DEFAULTS.step,
+    pic: pic === 'surprise' || PICS[+pic] ? pic : DEFAULTS.pic,
+    perPage: +$('perPage').value in GRID ? +$('perPage').value : DEFAULTS.perPage,
+    sheets: clamp($('sheets').value, 1, SHEETS_MAX, DEFAULTS.sheets),
+  };
+  writeControls();
+  saveSettings();
+}
+function writeControls() {
+  if (!DOTS.includes(settings.dots)) settings.dots = DEFAULTS.dots;
+  if (!(settings.step in STEPS)) settings.step = DEFAULTS.step;
+  if (!(settings.perPage in GRID)) settings.perPage = DEFAULTS.perPage;
+  settings.sheets = clamp(settings.sheets, 1, SHEETS_MAX, DEFAULTS.sheets);
+  for (const o of $('pic').options) o.disabled = o.value !== 'surprise' && PICS[+o.value].min > settings.dots;
+  if (settings.pic !== 'surprise' && !(PICS[+settings.pic] && PICS[+settings.pic].min <= settings.dots)) settings.pic = 'surprise';
+  for (const k of ['dots', 'step', 'pic', 'perPage', 'sheets']) $(k).value = settings[k];
+  $('sheets').min = 1; $('sheets').max = SHEETS_MAX;
+}
+
+function newAll() { pages = pickPages(settings.sheets); renderPages(); }
+
+function startMaker() {
+  $('dots').innerHTML = DOTS.map((n) => `<option value="${n}">${n}</option>`).join('');
+  $('step').innerHTML = Object.entries(STEPS).map(([s, name]) => `<option value="${s}">${name}</option>`).join('');
+  $('pic').innerHTML = '<option value="surprise">Surprise me</option>' + PICS.map((pc, i) => `<option value="${i}">${pc.name}</option>`).join('');
+  writeControls();
+  $('dots').addEventListener('change', () => {   // same pictures, more or fewer dots (a picture that needs more dots is swapped)
+    readControls();
+    const ok = allowed();
+    pages = pages.map((page) => (page.every((p) => ok.includes(p)) ? page : pickPages(1, page)[0]));
+    renderPages();
+  });
+  $('step').addEventListener('change', () => { readControls(); renderPages(); });   // same pictures, new numbers
+  for (const k of ['pic', 'perPage']) $(k).addEventListener('change', () => { readControls(); newAll(); });
+  $('sheets').addEventListener('change', () => {   // keep the pages already made, add or drop at the end
+    readControls();
+    pages = pages.slice(0, settings.sheets);
+    if (pages.length < settings.sheets) pages.push(...pickPages(settings.sheets - pages.length, pages.flat()));
+    renderPages();
+  });
+  $('new').addEventListener('click', () => { readControls(); newAll(); });
+  $('print').addEventListener('click', () => { readControls(); window.print(); });
+  $('pages').addEventListener('click', (e) => {
+    const b = e.target.closest('.reroll');
+    if (!b) return;
+    pages[+b.dataset.i] = pickPages(1, pages[+b.dataset.i])[0];
+    renderPages();
+  });
+  addEventListener('resize', fitPages);
+  newAll();
+}
+
+/* ======== answer page ======== */
+// the dots, then a line joining them in order, then the picture colours in; tap it to draw again
+function showAnswer(pz) {
+  document.body.classList.add('answering');
+  const draw = () => {
+    $('solved').innerHTML = `${puzzleSvg(pz.p, pz.n, pz.s, 150, 150, { answer: true })}<a id="make" href="./">Make new dot-to-dots</a>`;
+    $('solved').style.setProperty('--t', `${Math.min(9, 1.5 + pz.n * 0.12).toFixed(1)}s`);
+  };
+  draw();
+  $('solved').addEventListener('click', (e) => { if (e.target.closest('svg')) draw(); });
+}
+
+/* ======== start ======== */
+function route() {
+  const pz = parseHash(location.hash);
+  if (pz) showAnswer(pz);
+  else { document.body.classList.remove('answering'); if (!pages.length) startMaker(); }
+}
+addEventListener('hashchange', () => location.reload());
+route();
+</script>
+<script>
+// Offline support: sw.js caches this page. Once the page has loaded, send it every file the page used (fonts,
+// the QR library) so those work offline too. Fails quietly where unsupported, e.g. on file://.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then((reg) => {
+    const send = () => reg.active && reg.active.postMessage({ cache: [location.href, ...performance.getEntriesByType('resource').map((r) => r.name)] });
+    send(); setTimeout(send, 5000); setTimeout(send, 20000);
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>
